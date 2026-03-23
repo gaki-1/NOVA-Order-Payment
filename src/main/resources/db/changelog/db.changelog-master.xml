@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="1" author="nova">
+        <createTable tableName="users">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2" author="nova">
+        <createTable tableName="item">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="price" type="NUMERIC(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="3" author="nova">
+        <createTable tableName="inventory">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_inventory_item" references="item(id)"/>
+            </column>
+            <column name="quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expiry_date" type="DATE"/>
+            <column name="reference_key" type="BIGINT"/>
+            <column name="version" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>ALTER TABLE inventory ADD CONSTRAINT chk_inventory_quantity_non_negative CHECK (quantity >= 0)</sql>
+
+        <addUniqueConstraint tableName="inventory"
+                             columnNames="item_key, expiry_date, type"
+                             constraintName="uq_inventory_supply"/>
+
+        <createIndex tableName="inventory" indexName="idx_inventory_item_key">
+            <column name="item_key"/>
+        </createIndex>
+        <createIndex tableName="inventory" indexName="idx_inventory_item_type">
+            <column name="item_key"/>
+            <column name="type"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="4" author="nova">
+        <createTable tableName="orders">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_orders_user" references="users(id)"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="5" author="nova">
+        <createTable tableName="order_item">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_order_item_order" references="orders(id)"/>
+            </column>
+            <column name="item_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_order_item_item" references="item(id)"/>
+            </column>
+            <column name="quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price_snapshot" type="NUMERIC(10,2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="order_item" indexName="idx_order_item_order_key">
+            <column name="order_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="6" author="nova">
+        <createTable tableName="stock_transaction">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_stock_txn_item" references="item(id)"/>
+            </column>
+            <column name="inventory_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_stock_txn_inventory" references="inventory(id)"/>
+            </column>
+            <column name="delta" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reference_key" type="BIGINT">
+                <constraints foreignKeyName="fk_stock_txn_order" references="orders(id)"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="stock_transaction" indexName="idx_stock_transaction_item_key">
+            <column name="item_key"/>
+        </createIndex>
+        <createIndex tableName="stock_transaction" indexName="idx_stock_transaction_reference_key">
+            <column name="reference_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="7" author="nova">
+        <createTable tableName="alert_config">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_alert_config_item" references="item(id)"/>
+            </column>
+            <column name="threshold" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="alert_config"
+                             columnNames="item_key, threshold, type"
+                             constraintName="uq_alert_config"/>
+
+        <createIndex tableName="alert_config" indexName="idx_alert_config_item_key">
+            <column name="item_key"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Migrate all primary keys and foreign keys from BIGINT/BIGSERIAL to UUID -->
+    <changeSet id="8" author="nova">
+        <sql>
+            DROP TABLE IF EXISTS stock_transaction CASCADE;
+            DROP TABLE IF EXISTS alert_config CASCADE;
+            DROP TABLE IF EXISTS order_item CASCADE;
+            DROP TABLE IF EXISTS inventory CASCADE;
+            DROP TABLE IF EXISTS orders CASCADE;
+            DROP TABLE IF EXISTS item CASCADE;
+            DROP TABLE IF EXISTS users CASCADE;
+        </sql>
+    </changeSet>
+
+    <changeSet id="9" author="nova">
+        <createTable tableName="users">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="10" author="nova">
+        <createTable tableName="item">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="price" type="NUMERIC(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="11" author="nova">
+        <createTable tableName="inventory">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_inventory_item" references="item(id)"/>
+            </column>
+            <column name="quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expiry_date" type="DATE"/>
+            <column name="reference_key" type="UUID"/>
+            <column name="version" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>ALTER TABLE inventory ADD CONSTRAINT chk_inventory_quantity_non_negative CHECK (quantity >= 0)</sql>
+
+        <addUniqueConstraint tableName="inventory"
+                             columnNames="item_key, expiry_date, type"
+                             constraintName="uq_inventory_supply"/>
+
+        <createIndex tableName="inventory" indexName="idx_inventory_item_key">
+            <column name="item_key"/>
+        </createIndex>
+        <createIndex tableName="inventory" indexName="idx_inventory_item_type">
+            <column name="item_key"/>
+            <column name="type"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="12" author="nova">
+        <createTable tableName="orders">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_orders_user" references="users(id)"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="13" author="nova">
+        <createTable tableName="order_item">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_order_item_order" references="orders(id)"/>
+            </column>
+            <column name="item_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_order_item_item" references="item(id)"/>
+            </column>
+            <column name="quantity" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price_snapshot" type="NUMERIC(10,2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="order_item" indexName="idx_order_item_order_key">
+            <column name="order_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="14" author="nova">
+        <createTable tableName="stock_transaction">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_stock_txn_item" references="item(id)"/>
+            </column>
+            <column name="inventory_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_stock_txn_inventory" references="inventory(id)"/>
+            </column>
+            <column name="delta" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reference_key" type="UUID"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="stock_transaction" indexName="idx_stock_transaction_item_key">
+            <column name="item_key"/>
+        </createIndex>
+        <createIndex tableName="stock_transaction" indexName="idx_stock_transaction_reference_key">
+            <column name="reference_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="15" author="nova">
+        <createTable tableName="alert_config">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="item_key" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_alert_config_item" references="item(id)"/>
+            </column>
+            <column name="threshold" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="alert_config"
+                             columnNames="item_key, threshold, type"
+                             constraintName="uq_alert_config"/>
+
+        <createIndex tableName="alert_config" indexName="idx_alert_config_item_key">
+            <column name="item_key"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Remove user concept from orders -->
+    <changeSet id="16" author="nova">
+        <dropForeignKeyConstraint baseTableName="orders" constraintName="fk_orders_user"/>
+        <dropColumn tableName="orders" columnName="user_key"/>
+    </changeSet>
+
+    <changeSet id="17" author="nova">
+        <dropTable tableName="users"/>
+    </changeSet>
+
+    <!-- Remove optimistic locking: version column no longer needed -->
+    <changeSet id="18" author="nova">
+        <validCheckSum>9:56e87b594ebd2e4cdf50e5f33afecaa0</validCheckSum>
+        <dropColumn tableName="inventory" columnName="version"/>
+    </changeSet>
+
+    <!-- Change inventory quantity to DOUBLE PRECISION to support fractional stock -->
+    <changeSet id="19" author="nova">
+        <validCheckSum>9:013c2ae8ef4427e718b66abfbc128689</validCheckSum>
+        <sql>ALTER TABLE inventory ALTER COLUMN quantity TYPE DOUBLE PRECISION USING quantity::DOUBLE PRECISION</sql>
+    </changeSet>
+
+    <!-- Remove inventory_key FK from stock_transaction: audit log should not reference a row that can be deleted on cancel -->
+    <changeSet id="20" author="nova">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="stock_transaction" columnName="inventory_key"/>
+        </preConditions>
+        <dropForeignKeyConstraint baseTableName="stock_transaction" constraintName="fk_stock_txn_inventory"/>
+        <dropColumn tableName="stock_transaction" columnName="inventory_key"/>
+    </changeSet>
+
+    <!-- Simplify stock_transaction to a pure event-log: event_type + JSON payload -->
+    <changeSet id="21" author="nova">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="stock_transaction" columnName="item_key"/>
+        </preConditions>
+        <dropIndex tableName="stock_transaction" indexName="idx_stock_transaction_item_key"/>
+        <dropIndex tableName="stock_transaction" indexName="idx_stock_transaction_reference_key"/>
+        <dropForeignKeyConstraint baseTableName="stock_transaction" constraintName="fk_stock_txn_item"/>
+        <dropColumn tableName="stock_transaction" columnName="item_key"/>
+        <dropColumn tableName="stock_transaction" columnName="delta"/>
+        <dropColumn tableName="stock_transaction" columnName="reason"/>
+        <dropColumn tableName="stock_transaction" columnName="reference_key"/>
+        <addColumn tableName="stock_transaction">
+            <column name="event_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="stock_transaction">
+            <column name="payload" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Re-apply quantity type conversion in case changeset 19 was recorded but not executed -->
+    <changeSet id="22" author="nova">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="integer">
+                SELECT data_type FROM information_schema.columns
+                WHERE table_name = 'inventory' AND column_name = 'quantity'
+            </sqlCheck>
+        </preConditions>
+        <sql>ALTER TABLE inventory ALTER COLUMN quantity TYPE DOUBLE PRECISION USING quantity::DOUBLE PRECISION</sql>
+    </changeSet>
+
+</databaseChangeLog>
